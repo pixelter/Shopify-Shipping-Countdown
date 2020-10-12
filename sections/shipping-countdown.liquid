@@ -1,0 +1,127 @@
+{% if section.settings.active %}
+  <script type="application/json" id="js-data-shipping-countdown">
+    {
+      "selector": "{{ section.settings.selector }}", 
+      "content": "{{ section.settings.content }}",
+      "timezone": "{{ section.settings.timezone }}",
+      "cutoff": {{ section.settings.cutoff }},
+      "delay": {{ section.settings.delay }},
+      "shipping_sat": {{ section.settings.shipping_sat }},
+      "shipping_sun": {{ section.settings.shipping_sun }}
+    }
+  </script>
+{% endif %}
+
+{% javascript %}
+  var dataEl = document.getElementById('js-data-shipping-countdown');
+  if (!dataEl) return;
+
+  var data = JSON.parse(dataEl.textContent);
+  
+  var currentTime = moment().tz(data.timezone);
+  var cutoffTime = currentTime.clone().hour(data.cutoff).minute(0).second(0);
+  var shippingTime = currentTime.clone().add(data.delay, 'day');
+
+  if (currentTime.isAfter(cutoffTime)) {
+    cutoffTime.add(1, 'day');
+    shippingTime.add(1, 'day');
+  }
+
+  if (!data.shipping_sat && shippingTime.format('dd') === 'Sa') {
+    shippingTime.add(1, 'day');
+  }
+
+  if (data.shipping_sun && shippingTime.format('dd') === 'Su') {
+    shippingTime.add(1, 'day'); 
+  }
+
+  var hoursLeft = cutoffTime.diff(currentTime, 'hours');
+  var minutesLeft = cutoffTime.diff(currentTime, 'minutes');
+  var clearMinutes = minutesLeft % 60;
+  
+  var tomorrowTime = currentTime.clone().add(1, 'day');
+  var dateLabel = shippingTime.isSame(tomorrowTime, 'day') ? 'tomorrow' : 'on ' + shippingTime.format('MMM D');
+  var countdownLabel = hoursLeft > 0 ? hoursLeft + 'h ' + clearMinutes + 'm' : clearMinutes + 'm';
+
+  var productMessage = data.content
+                      .replace('{countdown}', '<strong>' + countdownLabel + '</strong>')
+                      .replace('{date}', '<strong>' + dateLabel + '</strong>');
+
+  var targetEl = document.querySelector(data.selector)
+
+  if (targetEl) {
+    targetEl.innerHTML = productMessage;
+  }
+{% endjavascript %}
+
+{% schema %}
+  {
+    "name": "Shipping Countdown",
+    "settings": [
+      {
+        "type": "header",
+        "content": "Settings"
+      },
+      {
+        "type": "checkbox",
+        "id": "active",
+        "label": "Active"
+      },
+      {
+        "type": "text",
+        "id": "selector",
+        "info": "e.g. .js-shipping-countdown",
+        "label": "Element Selector"
+      },
+      {
+        "type": "text",
+        "id": "content",
+        "info": "Include {countdown} and {date} placeholders",
+        "default": "Order in {countdown} for shipping {date}",
+        "label": "Content"
+      },
+      {
+        "type": "text",
+        "id": "timezone",
+        "info": "Use timezone name from [this list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). E.g. America/New_York",
+        "label": "Timezone"
+      },
+      {
+        "type": "header",
+        "content": "Shipping Options"
+      },
+      {
+        "type": "range",
+        "id": "cutoff",
+        "min": 0,
+        "max": 24,
+        "default": 18,
+        "step": 1,
+        "label": "Cut-off Time"
+      },
+      {
+        "type": "range",
+        "id": "delay",
+        "min": 0,
+        "max": 14,
+        "default": 0,
+        "step": 1,
+        "label": "Shipping Delay"
+      },
+      {
+        "type": "header",
+        "content": "Shipping Days"
+      },
+      {
+        "type": "checkbox",
+        "id": "shipping_sat",
+        "label": "Saturday"
+      },
+      {
+        "type": "checkbox",
+        "id": "shipping_sun",
+        "label": "Sunday"
+      }
+    ]
+  }
+{% endschema %}
